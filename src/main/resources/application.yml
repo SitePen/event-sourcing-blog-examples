@@ -1,0 +1,67 @@
+spring.application.name: es-example
+
+spring.cloud.stream:
+  default.content-type: application/json
+  kafka:
+    streams.binder.configuration:
+      processing.guarantee: exactly_once
+      ###############
+      # SET THIS TO A VALID HOSTNAME BEFORE RUNNING THE APP!
+      ###############
+      application.server: localhost:8080
+      commit.interval.ms: 1000
+    streams.binder.stateStoreRetry.maxAttempts: 5
+    default.producer:
+      messageKeyExpression: headers['accountId'].getBytes('UTF-8')
+      sync: true
+      configuration:
+        acks: all
+        retries: 1
+        enable.idempotence: true
+        max.block.ms: 5000
+      # Enable indefinite topic message retention
+      topic.properties.retention:
+        ms: -1
+        bytes: -1
+    default.consumer.partitioned: true
+
+  # Which spring cloud stream processing functions should be activated at runtime
+  function.definition: >-
+     openAccount;
+     processEvent;
+     getAccountFromEvent;
+     accountStorageSink;
+     commandStorageSink;
+     depositSource;
+     withdrawalSource;
+     processCommand
+  bindings:
+    openAccount-out-0.destination: source.accounts
+    processEvent-in-0.destination: source.accounts
+    processEvent-in-1.destination: stores.accounts
+    processEvent-out-0.destination: events
+    depositSource-out-0.destination: commands
+    withdrawalSource-out-0.destination: commands
+    processCommand-in-0.destination: commands
+    processCommand-in-1.destination: stores.accounts
+    processCommand-out-0.destination: events
+    getAccountFromEvent-in-0.destination: events
+    getAccountFromEvent-out-0.destination: stores.accounts
+    accountStorageSink-in-0.destination: stores.accounts
+    commandStorageSink-in-0.destination: commands
+
+  kafka.streams.bindings:
+    accountStorageSink-in-0.consumer.materializedAs: stores.accounts
+    getAccountFromEvent-in-0.consumer.materializedAs: stores.events
+    commandStorageSink-in-0.consumer.materializedAs: stores.commands
+
+  # Each processor bean within a Kafka Streams topology requires a unique application ID
+  kafka.streams.binder.functions:
+    openAccount.applicationId: openAccount
+    processEvent.applicationId: processEvent
+    depositSource.applicationId: depositSource
+    withdrawalSource.applicationId: depositSource
+    processCommand.applicationId: processCommand
+    getAccountFromEvent.applicationId: getAccountFromEvent
+    accountStorageSink.applicationId: accountStorageSink
+    commandStorageSink..applicationId: commandSink
